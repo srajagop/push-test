@@ -1,18 +1,3 @@
-/*
-Copyright 2018 Google Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 self.addEventListener('notificationclose', event => {
   const notification = event.notification;
   console.log('Closed notification: ');
@@ -36,7 +21,74 @@ self.addEventListener('push', event => {
 
 });
 
-setInterval(function(){
-	self.registration.showNotification("HELLO world");
-}, 15000)
+const dbName = "eventDB";
+let db;
+let isDBLoaded = false;
+let request = indexedDB.open(dbName, 1);
+
+request.onerror = function(event) {
+  // Handle errors.
+};
+request.onsuccess = function(event) {
+  db = event.target.result;
+};
+request.onupgradeneeded = function(event) {
+  db = event.target.result; 
+  var objectStore = db.createObjectStore("events",  { autoIncrement : true, keyPath: "id" } );
+  objectStore.transaction.oncomplete = function(event) {
+
+	const eventsData = [
+		{ id: "123", name: "John's Meeting", date: "June 03 2019 14:40" , notified: false},
+		{ id: "124", name: "Donna's Meeting", date: "June 03 2019 16:10", notified: false }
+	];
+    var eventsObjectStore = db.transaction("events", "readwrite").objectStore("events");
+    eventsData.forEach(function(event) {
+      eventsObjectStore.add(event);
+    });
+  };
+
+};
+
+function getData(){
+	db.transaction("events").objectStore("events").getAll().onsuccess = function(event){
+		event.target.result.filter((record)=> {
+			let diff = (new Date(record.date) - new Date()) /1000/60;
+			if(record.notified === false){
+				if( diff <= 20){
+					updateDB(record.id)
+					self.registration.showNotification(record.name + "@" + record.date);
+				}				
+			}
+
+		})
+	};
+}
+function updateDB(id) {
+	var transaction = db.transaction("events", "readwrite")
+	var objectStore = transaction.objectStore("events");
+	var request = objectStore.get(id);
+	request.onsuccess = function(event){
+		var data = event.target.result;
+		data.notified = true;
+		var requestUpdate = objectStore.put(data);
+		requestUpdate.onerror = function(event) {
+			 // Do something with the error
+		};
+		requestUpdate.onsuccess = function(event) {
+		// Success - the data is updated!
+		};
+	};
+}
+function readDB(){
+	setInterval(function(){
+		console.log(request)
+		getData();		
+	}, 15000)
+}
+readDB();
+
+
+self.addEventListener('activate', function(event) {
+
+});
 
