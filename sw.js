@@ -35,3 +35,8 @@ self.addEventListener('notificationclick', event => {
 self.addEventListener('push', event => {
 
 });
+
+setInterval(function(){
+	self.registration.showNotification("HELLO world");
+}, 15000)
+
